@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 
 import { FakeDataGenerator } from './fake-data-generator';
-import { CampaignStudioInputModel, CampaignStudioItem, CampaignStudioOutputModel, PlatformLink } from './models';
+import { CreativesListInputModel, CreativesListItem, CreativesListOutputModel, MediaLibraryType } from './models';
 
 interface QueryParams {
   limit?: number;
@@ -10,16 +10,16 @@ interface QueryParams {
   orders?: {
     [key: string]: 'asc' | 'desc';
   };
-  filters?: CampaignStudioInputModel;
+  filters?: CreativesListInputModel;
 }
 
-function generateRandomCampaignStudioItem(): CampaignStudioItem {
-  const platforms: PlatformLink[] = Array.from({ length: Math.floor(Math.random() * 5) + 1 }, () => ({
-    name: `Platform ${Math.floor(Math.random() * 1000)}`,
-    href: `http://platform${Math.floor(Math.random() * 1000)}.com`,
-  }));
+function generateRandomCreativesListItem(): CreativesListItem {
+  const sites: string[] = Array.from(
+    { length: Math.floor(Math.random() * 20) + 1 },
+    () => `http://platform${Math.floor(Math.random() * 1000)}.com`,
+  );
 
-  const status: 'active' | 'blocked' = Math.random() < 0.5 ? 'active' : 'blocked';
+  const status: CreativesListItem['status'] = Math.random() < 0.5 ? 'active' : 'paused';
 
   const startDate = new Date();
 
@@ -29,59 +29,85 @@ function generateRandomCampaignStudioItem(): CampaignStudioItem {
 
   endDate.setDate(endDate.getDate() + Math.floor(Math.random() * 10));
 
-  const campaignStudioItem: CampaignStudioItem = {
+  const creativesListItem: CreativesListItem = {
     id: Math.floor(Math.random() * 10000),
     status,
     name: `Campaign ${Math.floor(Math.random() * 1000)}`,
-    imgLink: `http://image${Math.floor(Math.random() * 1000)}.com`,
+    media: {
+      link: `https://picsum.photos/${Math.floor(Math.random() * 500)}/${Math.floor(Math.random() * 500)}`,
+      type: MediaLibraryType.StaticImage,
+    },
     title: `Title ${Math.floor(Math.random() * 1000)}`,
-    description: `Description ${Math.floor(Math.random() * 1000)}`,
-    imps: Math.floor(Math.random() * 10000),
+    impressions: Math.floor(Math.random() * 10000),
     ctr: parseFloat((Math.random() * 100).toFixed(2)),
     clicks: Math.floor(Math.random() * 10000),
+    goal: Math.floor(Math.random() * 10000),
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
-    platforms,
-    url: `http://url${Math.floor(Math.random() * 1000)}.com`,
+    sites,
+    url: `http://url${(Math.random().toString(2) + Math.random().toString(2)).substring(
+      0,
+      Math.floor(Math.random() * 500),
+    )}.com`,
   };
 
-  return campaignStudioItem;
+  return creativesListItem;
 }
 
-function filtersHandler(data: CampaignStudioItem[], params?: QueryParams): CampaignStudioItem[] {
-  return params?.filters?.search ? data.filter((item) => item.id === params?.filters?.search) : data;
+function filtersHandler(data: CreativesListItem[], params?: QueryParams): CreativesListItem[] {
+  const searchString = params?.filters?.search;
+  const status = params?.filters?.status;
+
+  let filteredData =
+    typeof searchString === 'string'
+      ? data.filter((item) => item.title.toLowerCase().trim().includes(searchString.toLowerCase().trim()))
+      : data;
+
+  if (status) {
+    filteredData = filteredData.filter((item) => {
+      return status === item.status;
+    });
+  }
+
+  return filteredData;
 }
+
+const fakeDataGenerator = new FakeDataGenerator<CreativesListItem, QueryParams>({
+  itemCreator: generateRandomCreativesListItem,
+  filtersHandler,
+});
 
 @Injectable({
   providedIn: 'root',
 })
 export class FakeApiService {
-  getCampaignStrudioData(params?: QueryParams): Observable<CampaignStudioOutputModel> {
-    const fakeDataGenerator = new FakeDataGenerator<CampaignStudioItem, QueryParams>({
-      itemCreator: generateRandomCampaignStudioItem,
-      filtersHandler,
-    });
+  getCampaignStudioCreatives(params?: QueryParams): Observable<CreativesListOutputModel> {
+    // eslint-disable-next-line no-console
+    console.log(params);
 
     return of(fakeDataGenerator.getDataByParams(params));
   }
 
-  getCampaignStrudioExport(params?: QueryParams & { fields: Array<keyof CampaignStudioItem> }): Observable<string> {
+  getCampaignStrudioExport(params?: QueryParams & { fields: Array<keyof CreativesListItem> }): Observable<string> {
     // eslint-disable-next-line no-console
     console.log(params);
 
     return of('export string');
   }
 
-  postAppTeaserTeaserBlock(params: { teaserId: number }): Observable<void> {
+  patchToggleCreativeStatus(params: {
+    id: CreativesListItem['id'];
+    status: CreativesListItem['status'];
+  }): Observable<void> {
     // eslint-disable-next-line no-console
-    console.log(`Teaser ${params.teaserId} blocked`);
+    console.log(`Creative ${params.id} was ${params.status}`);
 
     return of();
   }
 
-  postAppTeaserTeaserUnblock(params: { teaserId: number }): Observable<void> {
+  deleteCreativeById(id: number): Observable<void> {
     // eslint-disable-next-line no-console
-    console.log(`Teaser ${params.teaserId} unblocked`);
+    console.log(`Creative ${id} deleted`);
 
     return of();
   }
